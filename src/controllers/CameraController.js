@@ -10,6 +10,7 @@ export class CameraController{
 
         }).then(stream=>{
 
+            this._stream = stream
             this._videoEl.srcObject = new MediaStream(stream);
             this._videoEl.play()
 
@@ -17,6 +18,15 @@ export class CameraController{
             console.error(err);
         })
 
+    }
+
+    stop(){
+
+
+
+        this._stream.getTracks().forEach(track => {
+            track.stop()
+        })
     }
 
 }
