@@ -8,16 +8,79 @@ import { Chat } from "../models/Chat"
 import { Message } from "../models/Message"
 import { Base64 } from "../utils/Base64";
 import { ContactsController } from "./ContactsController"
+import { Upload } from "../utils/Upload"
 
 export class WhatsAppController {
 
     constructor(){
 
+        this._active = true
         this._firebase = new Firebase()
         this.initAuth()
         this.elementsPrototype()
         this.loadElements() 
         this.initEvents()
+        this.checkNotifications()
+
+    }
+
+    checkNotifications(){
+
+        if (typeof Notification == 'function') {
+
+            if (Notification.permission !== 'granted') {
+
+                this.el.alertNotificationPermission.show()
+                
+            }
+            else{
+
+                this.el.alertNotificationPermission.hide()
+
+            }
+
+            this.el.alertNotificationPermission.on('click', e=>{
+
+                Notification.requestPermission(permission=>{
+
+                    if (permission == 'granted') {
+                        
+                        this.el.alertNotificationPermission.hide()
+                        console.info('notificações permitidas')
+
+                    }
+
+                })
+
+            })
+            
+        }
+
+    }
+
+    notification(data){
+        console.log(this._active);
+
+        if (Notification.permission == 'granted') {
+
+            let n = new Notification(this._contactActive.name,{
+                icon: this._contactActive.photo,
+                body: data.content
+            })
+
+            let sound = new Audio('./audio/alert.mp3')
+            sound.currentTime = 0
+            sound.play()
+
+            setTimeout(()=>{
+
+                if (n) {
+                    n.close()
+                }
+
+            }, 3000)
+            
+        }
 
     }
 
@@ -106,7 +169,7 @@ export class WhatsAppController {
                                 <span dir="auto" title="${contact.name}" class="_1wjpf">${contact.name}</span>
                             </div>
                             <div class="_3Bxar">
-                                <span class="_3T2VG">${contact.lastMessageTime}</span>
+                                <span class="_3T2VG">${Format.timeStampToTime(contact.lastMessageTime)}</span>
                             </div>
                         </div>
                         <div class="_1AwDx">
@@ -185,6 +248,8 @@ export class WhatsAppController {
 
         this.el.panelMessagesContainer.innerHTML = ''
 
+        this._messagesReceived = []
+
         Message.getRef(this._contactActive.chatId).orderBy('timeStamp').onSnapshot(docs =>{
 
             let scrollTop = this.el.panelMessagesContainer.scrollTop
@@ -199,9 +264,16 @@ export class WhatsAppController {
 
                 let message = new Message()
 
-                message.fromJSON(data)
+                message.fromJSON(data) 
 
                 let me = (data.from == this._user.email)
+
+                if (!me && this._messagesReceived.filter(id => { return id == data.id }).length === 0) {
+
+                    this.notification(data)
+                    this._messagesReceived.push(data.id)
+                    
+                }
 
                 let view = message.getViewElement(me)
 
@@ -364,6 +436,18 @@ export class WhatsAppController {
 
     initEvents(){
 
+        window.addEventListener('focus', e=>{
+
+            this._active = true
+
+        })
+
+        window.addEventListener('blur', e=>{
+
+            this._active = true
+
+        })
+
         this.el.inputSearchContacts.on('keyup', e=>{
 
             if (this.el.inputSearchContacts.value.length > 0) {
@@ -417,6 +501,27 @@ export class WhatsAppController {
         this.el.photoContainerEditProfile.on('click', e=>{
 
             this.el.inputProfilePhoto.click()
+
+        })
+
+        this.el.inputProfilePhoto.on('change', e=>{
+
+            if (this.el.inputProfilePhoto.files.length > 0) {
+
+                let file = this.el.inputProfilePhoto.files[0]
+
+                Upload.send(file, this._user.email).then(downloadURL=>{
+
+                    this._user.photo = downloadURL
+                    this._user.save().then(()=>{
+
+                        this.el.btnClosePanelEditProfile.click()
+
+                    })
+
+                })
+                
+            }
 
         })
 

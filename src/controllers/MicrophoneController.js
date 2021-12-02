@@ -79,7 +79,7 @@ export class MicrophoneController extends ClassEvent{
                             lastModified: Date.now()
                         })
 
-                        this.trigger('recorder', file, decode)
+                        this.trigger('recorded', file, decode)
 
                     })
 

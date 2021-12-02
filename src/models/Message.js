@@ -1,6 +1,7 @@
 import { Firebase } from "../utils/Firebase";
 import { Model } from "./Model";
 import { Format } from "../utils/Format";
+import { Upload } from "../utils/Upload";
 
 export class Message extends Model{
 
@@ -229,7 +230,7 @@ export class Message extends Model{
                                                     </svg>
                                                 </span>
                                             </button>
-                                            <button class="_2pQE3 audio-pause">
+                                            <button class="_2pQE3 audio-pause" style="display:none">
                                                 <span data-icon="audio-pause">
                                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 34 34" width="34" height="34">
                                                         <path fill="#263238" fill-opacity=".5" d="M9.2 25c0 .5.4 1 .9 1h3.6c.5 0 .9-.4.9-1V9c0-.5-.4-.9-.9-.9h-3.6c-.4-.1-.9.3-.9.9v16zm11-17c-.5 0-1 .4-1 .9V25c0 .5.4 1 1 1h3.6c.5 0 1-.4 1-1V9c0-.5-.4-.9-1-.9 0-.1-3.6-.1-3.6-.1z"></path>
@@ -303,12 +304,13 @@ export class Message extends Model{
                 let btnPlay = div.querySelector('.audio-play')
                 let btnPause = div.querySelector('.audio-pause')
                 let inputRange = div.querySelector('[type=range]')
+                let audioDuration = div.querySelector('.message-audio-duration')
 
                 audioEl.onloadeddata = e =>{
 
                     loadEl.hide() 
                     btnPlay.show()
-
+                    
                 }
 
                 audioEl.onplay = e=>{
@@ -320,10 +322,51 @@ export class Message extends Model{
 
                 audioEl.onpause = e=>{
 
+                    audioDuration.innerHTML = Format.toTime(this.duration * 1000)
                     btnPlay.show()
                     btnPause.hide()
 
                 }
+
+                audioEl.onended = e =>{
+
+                    audioEl.currentTime = 0
+
+                }
+
+                audioEl.ontimeupdate = e =>{
+
+                    btnPlay.hide()
+                    btnPause.hide()
+
+                    audioDuration.innerHTML = Format.toTime(audioEl.currentTime * 1000)
+                    inputRange.value = (audioEl.currentTime * 100) / this.duration
+
+                    if (audioEl.paused) {
+                        btnPlay.show()
+                    }
+                    else{
+                        btnPause.show()
+                    }
+                }
+
+                btnPlay.on('click', e=>{
+
+                    audioEl.play()
+
+                })
+
+                btnPause.on('click', e=>{
+
+                    audioEl.pause()
+
+                })
+
+                inputRange.on('change', e=>{
+
+                    audioEl.currentTime = (inputRange * this.duration) / 100
+
+                })
 
                 break;
         
@@ -365,29 +408,7 @@ export class Message extends Model{
 
     static upload(file, from){
 
-        return new Promise((resolve, f)=>{
-
-            let uploadTask = Firebase.hd().ref(from).child(Date.now() + '_' + file.name).put(file)
-
-            uploadTask.on('state_changed', e=>{
-
-                console.info('upload', e)
-
-            }, err=>{
-
-                f(err);
-
-            }, ()=>{
-
-                uploadTask.snapshot.ref.getDownloadURL().then(downloadURL => {
-
-                    resolve(downloadURL)
-
-                })
-      
-            })
-
-        })   
+         return Upload.send(file, from)
 
     }
 
@@ -397,7 +418,7 @@ export class Message extends Model{
         
     }
 
-    sendAudio(chatId, from, file, metadata, photo){
+    static sendAudio(chatId, from, file, metadata, photo){
 
         return Message.send(chatId, from, 'audio', '').then(msgRef=>{
 
